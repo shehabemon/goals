@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Goals">
+<title>Goals</title>
+<style>
+  :root{
+    --bg:#F2F2F7; --card:#FFFFFF; --border:rgba(60,60,67,0.13);
+    --text:#000000; --text-secondary:rgba(60,60,67,0.6); --text-muted:rgba(60,60,67,0.35);
+    --accent:#34C759; --danger:#FF3B30;
+    --pill-bg:rgba(120,120,128,0.12); --pill-active:#FFFFFF;
+    --shadow:0 1px 2px rgba(0,0,0,0.04), 0 1px 8px rgba(0,0,0,0.03);
+  }
+  html[data-theme="dark"]{
+    --bg:#000000; --card:#1C1C1E; --border:rgba(84,84,88,0.4);
+    --text:#FFFFFF; --text-secondary:rgba(235,235,245,0.6); --text-muted:rgba(235,235,245,0.35);
+    --accent:#30D158; --danger:#FF453A;
+    --pill-bg:rgba(120,120,128,0.24); --pill-active:#3A3A3C;
+    --shadow:0 1px 2px rgba(0,0,0,0.2), 0 1px 8px rgba(0,0,0,0.15);
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  body{
+    margin:0; padding:calc(env(safe-area-inset-top) + 8px) 16px calc(env(safe-area-inset-bottom) + 32px);
+    background:var(--bg); color:var(--text);
+    font-family:-apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+    min-height:100vh; -webkit-font-smoothing:antialiased;
+    transition:background 0.25s ease, color 0.25s ease;
+  }
+  .topbar{display:flex; align-items:center; justify-content:space-between; margin:12px 0 20px;}
+  h1{font-size:28px; font-weight:700; letter-spacing:-0.02em; margin:0;}
+  .theme-toggle{display:flex; background:var(--pill-bg); border-radius:9px; padding:2px; gap:2px;}
+  .theme-toggle button{
+    border:none; background:none; width:30px; height:28px; border-radius:7px;
+    display:flex; align-items:center; justify-content:center; color:var(--text-secondary);
+    font-size:14px; transition:background 0.2s, color 0.2s;
+  }
+  .theme-toggle button.active{background:var(--pill-active); color:var(--text); box-shadow:0 1px 2px rgba(0,0,0,0.15);}
+
+  .stats{display:flex; gap:10px; margin-bottom:28px;}
+  .stat{flex:1; background:var(--card); border-radius:16px; padding:16px; box-shadow:var(--shadow);}
+  .stat .num{font-size:26px; font-weight:700; letter-spacing:-0.02em;}
+  .stat .label{font-size:13px; color:var(--text-secondary); margin-top:2px;}
+
+  .section{margin-bottom:28px;}
+  .section-head{font-size:13px; font-weight:600; color:var(--text-secondary); margin:0 4px 8px; text-transform:uppercase; letter-spacing:0.05em;}
+  .card{background:var(--card); border-radius:16px; overflow:hidden; box-shadow:var(--shadow);}
+
+  .row{display:flex; align-items:center; gap:12px; padding:13px 14px; border-bottom:0.5px solid var(--border); cursor:pointer; user-select:none;}
+  .row:last-child{border-bottom:none;}
+  .row:active{background:var(--pill-bg);}
+
+  .check{
+    width:24px; height:24px; border-radius:50%; border:1.6px solid var(--text-muted);
+    flex-shrink:0; display:flex; align-items:center; justify-content:center;
+    transition:background 0.15s, border-color 0.15s;
+  }
+  .row.done .check{background:var(--accent); border-color:var(--accent);}
+  .check svg{width:13px; height:13px; opacity:0; transform:scale(0.5); transition:opacity 0.15s, transform 0.15s;}
+  .row.done .check svg{opacity:1; transform:scale(1);}
+
+  .row span{flex:1; font-size:16px; line-height:1.35; word-break:break-word;}
+  .row.done span{color:var(--text-muted); text-decoration:line-through;}
+
+  .del-btn{
+    border:none; background:none; color:var(--text-muted); width:28px; height:28px;
+    display:flex; align-items:center; justify-content:center; flex-shrink:0; border-radius:50%;
+  }
+  .del-btn:active{background:var(--pill-bg);}
+  .del-btn svg{width:15px; height:15px;}
+
+  .add-row{display:flex; align-items:center; gap:10px; padding:12px 14px;}
+  .add-row input{
+    flex:1; font-size:16px; padding:0; border:none; background:none; color:var(--text);
+    font-family:inherit;
+  }
+  .add-row input::placeholder{color:var(--text-muted);}
+  .add-row input:focus{outline:none;}
+  .add-btn{
+    border:none; background:var(--accent); color:#fff; font-weight:600; font-size:14px;
+    width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+    flex-shrink:0; opacity:0.35; transition:opacity 0.15s;
+  }
+  .add-btn.ready{opacity:1;}
+  .add-btn svg{width:14px; height:14px;}
+
+  .empty{font-size:14px; color:var(--text-muted); padding:14px;}
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <h1>Goals</h1>
+    <div class="theme-toggle" id="theme-toggle">
+      <button data-theme-btn="light" aria-label="Light mode">☀︎</button>
+      <button data-theme-btn="dark" aria-label="Dark mode">☾</button>
+      <button data-theme-btn="system" aria-label="System">A</button>
+    </div>
+  </div>
+  <div class="stats">
+    <div class="stat"><div class="num" id="streak-num">0</div><div class="label">day streak</div></div>
+    <div class="stat"><div class="num" id="today-num">0/0</div><div class="label">today</div></div>
+  </div>
+  <div id="sections"></div>
+
+<script>
+(function(){
+  var STORAGE_KEY = 'goals-data-v1';
+  var THEME_KEY = 'goals-theme-v1';
+  var todayStr = new Date().toISOString().slice(0,10);
+  var data = { daily: [], dailyDone: {}, short: [], long: [] };
+
+  var CHECK_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+  var X_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
+  var PLUS_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>';
+
+  function uid(){ return Math.random().toString(36).slice(2,9); }
+
+  function applyTheme(mode){
+    if (mode === 'system') {
+      document.documentElement.removeAttribute('data-theme');
+    } else {
+      document.documentElement.setAttribute('data-theme', mode);
+    }
+    document.querySelectorAll('[data-theme-btn]').forEach(function(btn){
+      btn.classList.toggle('active', btn.getAttribute('data-theme-btn') === mode);
+    });
+  }
+
+  function loadTheme(){
+    var mode = 'system';
+    try { mode = localStorage.getItem(THEME_KEY) || 'system'; } catch(e){}
+    applyTheme(mode);
+    document.querySelectorAll('[data-theme-btn]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var m = btn.getAttribute('data-theme-btn');
+        try { localStorage.setItem(THEME_KEY, m); } catch(e){}
+        applyTheme(m);
+      });
+    });
+  }
+
+  function load(){
+    try {
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) data = JSON.parse(raw);
+    } catch(e){}
+    if (!data.daily) data.daily = [];
+    if (!data.dailyDone) data.dailyDone = {};
+    if (!data.short) data.short = [];
+    if (!data.long) data.long = [];
+
+    if (data.daily.length === 0 && data.short.length === 0 && data.long.length === 0) {
+      data.daily = [
+        { id: uid(), text: 'Walk 15,000 steps' },
+        { id: uid(), text: 'Drink 6 glasses of water' }
+      ];
+      data.short = [ { id: uid(), text: 'Get a job this year', done:false } ];
+      data.long = [
+        { id: uid(), text: 'Buy a house in London (~£350k)', done:false },
+        { id: uid(), text: 'Buy a Mercedes or Range Rover', done:false },
+        { id: uid(), text: 'Buy a motorbike', done:false }
+      ];
+      save();
+    }
+  }
+
+  function save(){
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch(e){}
+  }
+
+  function computeStreak(){
+    if (data.daily.length === 0) return 0;
+    var streak = 0;
+    var d = new Date();
+    while (true) {
+      var ds = d.toISOString().slice(0,10);
+      var done = data.dailyDone[ds] || [];
+      var allDone = data.daily.every(function(g){ return done.indexOf(g.id) !== -1; });
+      if (!allDone) break;
+      streak++;
+      d.setDate(d.getDate() - 1);
+    }
+    return streak;
+  }
+
+  function section(title, kind){
+    var wrap = document.createElement('div');
+    wrap.className = 'section';
+    var head = document.createElement('div');
+    head.className = 'section-head';
+    head.textContent = title;
+    wrap.appendChild(head);
+
+    var card = document.createElement('div');
+    card.className = 'card';
+
+    var items = kind === 'daily' ? data.daily : data[kind];
+    var doneSet = kind === 'daily' ? (data.dailyDone[todayStr] || []) : null;
+
+    if (items.length === 0) {
+      var empty = document.createElement('div');
+      empty.className = 'empty';
+      empty.textContent = 'Nothing here yet.';
+      card.appendChild(empty);
+    }
+
+    items.forEach(function(g){
+      var checked = kind === 'daily' ? doneSet.indexOf(g.id) !== -1 : !!g.done;
+      var row = document.createElement('div');
+      row.className = 'row' + (checked ? ' done' : '');
+      row.setAttribute('data-id', g.id);
+      row.setAttribute('data-kind', kind);
+      row.innerHTML =
+        '<div class="check">'+CHECK_ICON+'</div>' +
+        '<span>'+g.text.replace(/</g,'&lt;')+'</span>' +
+        '<button class="del-btn" data-del="'+g.id+'" data-kind="'+kind+'" aria-label="Delete">'+X_ICON+'</button>';
+      card.appendChild(row);
+    });
+
+    var addRow = document.createElement('div');
+    addRow.className = 'add-row';
+    addRow.innerHTML =
+      '<input type="text" placeholder="Add a goal" data-add-input="'+kind+'">' +
+      '<button class="add-btn" data-add-btn="'+kind+'" aria-label="Add">'+PLUS_ICON+'</button>';
+    card.appendChild(addRow);
+
+    wrap.appendChild(card);
+    return wrap;
+  }
+
+  function render(){
+    document.getElementById('streak-num').textContent = computeStreak();
+    var doneToday = (data.dailyDone[todayStr] || []).length;
+    document.getElementById('today-num').textContent = doneToday + '/' + data.daily.length;
+
+    var s = document.getElementById('sections');
+    s.innerHTML = '';
+    s.appendChild(section('Daily', 'daily'));
+    s.appendChild(section('Short term', 'short'));
+    s.appendChild(section('Long term', 'long'));
+
+    s.querySelectorAll('.row').forEach(function(row){
+      row.addEventListener('click', function(){
+        var id = row.getAttribute('data-id');
+        var kind = row.getAttribute('data-kind');
+        if (kind === 'daily') {
+          var arr = data.dailyDone[todayStr] || [];
+          var idx = arr.indexOf(id);
+          if (idx === -1) arr.push(id); else arr.splice(idx,1);
+          data.dailyDone[todayStr] = arr;
+        } else {
+          var item = data[kind].find(function(x){ return x.id === id; });
+          if (item) item.done = !item.done;
+        }
+        save(); render();
+      });
+    });
+
+    s.querySelectorAll('[data-del]').forEach(function(btn){
+      btn.addEventListener('click', function(e){
+        e.stopPropagation();
+        var id = btn.getAttribute('data-del');
+        var kind = btn.getAttribute('data-kind');
+        data[kind] = data[kind].filter(function(g){ return g.id !== id; });
+        if (kind === 'daily') {
+          Object.keys(data.dailyDone).forEach(function(ds){
+            data.dailyDone[ds] = data.dailyDone[ds].filter(function(x){ return x !== id; });
+          });
+        }
+        save(); render();
+      });
+    });
+
+    s.querySelectorAll('[data-add-btn]').forEach(function(btn){
+      btn.addEventListener('click', function(e){
+        e.stopPropagation();
+        var kind = btn.getAttribute('data-add-btn');
+        var input = s.querySelector('[data-add-input="'+kind+'"]');
+        var text = input.value.trim();
+        if (!text) return;
+        data[kind].push({ id: uid(), text: text, done: false });
+        input.value = '';
+        save(); render();
+      });
+    });
+
+    s.querySelectorAll('[data-add-input]').forEach(function(input){
+      input.addEventListener('input', function(){
+        var kind = input.getAttribute('data-add-input');
+        var btn = s.querySelector('[data-add-btn="'+kind+'"]');
+        btn.classList.toggle('ready', input.value.trim().length > 0);
+      });
+      input.addEventListener('click', function(e){ e.stopPropagation(); });
+      input.addEventListener('keydown', function(e){
+        if (e.key === 'Enter') {
+          var kind = input.getAttribute('data-add-input');
+          s.querySelector('[data-add-btn="'+kind+'"]').click();
+        }
+      });
+    });
+  }
+
+  loadTheme();
+  load();
+  render();
+})();
+</script>
+</body>
+</html>
