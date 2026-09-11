@@ -317,8 +317,13 @@
     try { input.showPicker(); } catch(e){ input.focus(); }
   }
 
-  // — Confetti —
+  // — Confetti + banner —
+  var bannerTimer = null;
   function celebrate(){
+    var banner = document.getElementById('all-done-banner');
+    banner.classList.add('visible');
+    if (bannerTimer) clearTimeout(bannerTimer);
+    bannerTimer = setTimeout(function(){ banner.classList.remove('visible'); bannerTimer = null; }, 3500);
     var canvas = document.createElement('canvas');
     canvas.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:999;';
     canvas.width = window.innerWidth;
@@ -669,7 +674,7 @@
     var totalDaily = data.daily.length;
     document.getElementById('today-num').textContent = doneToday + '/' + totalDaily;
     document.getElementById('today-bar').style.width = (totalDaily > 0 ? Math.round(doneToday / totalDaily * 100) : 0) + '%';
-    document.getElementById('all-done-banner').classList.toggle('visible', allDailyDoneToday());
+    document.getElementById('all-done-banner').classList.remove('visible');
 
     document.querySelectorAll('.date-hidden').forEach(function(el){ el.remove(); });
 
