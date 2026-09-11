@@ -1,0 +1,17 @@
+{
+  "name": "Goals",
+  "short_name": "Goals",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#F2F2F7",
+  "theme_color": "#F2F2F7",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "image/maxresdefault.jpg",
+      "sizes": "any",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -6,6 +6,11 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Goals">
+<meta name="theme-color" content="#F2F2F7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="image/maxresdefault.jpg">
+<link rel="icon" href="image/maxresdefault.jpg">
 <title>Goals</title>
 <style>
   :root{
@@ -45,13 +50,31 @@
   .stat .num{font-size:26px; font-weight:700; letter-spacing:-0.02em;}
   .stat .label{font-size:13px; color:var(--text-secondary); margin-top:2px;}
 
+  .all-done-banner{
+    display:flex; align-items:center; justify-content:center; gap:8px;
+    background:var(--accent); color:#fff; border-radius:14px;
+    padding:13px 18px; margin-bottom:28px; font-size:15px; font-weight:600;
+    opacity:0; transform:scale(0.92);
+    transition:opacity 0.3s ease, transform 0.3s ease;
+    pointer-events:none;
+  }
+  .all-done-banner.visible{opacity:1; transform:scale(1);}
+
   .section{margin-bottom:28px;}
   .section-head{font-size:13px; font-weight:600; color:var(--text-secondary); margin:0 4px 8px; text-transform:uppercase; letter-spacing:0.05em;}
   .card{background:var(--card); border-radius:16px; overflow:hidden; box-shadow:var(--shadow);}
 
-  .row{display:flex; align-items:center; gap:12px; padding:13px 14px; border-bottom:0.5px solid var(--border); cursor:pointer; user-select:none;}
+  .row{display:flex; align-items:center; gap:10px; padding:13px 14px; border-bottom:0.5px solid var(--border); cursor:pointer; user-select:none; position:relative;}
   .row:last-child{border-bottom:none;}
   .row:active{background:var(--pill-bg);}
+  .row.dragging{opacity:0.3;}
+  .row.drag-over{background:var(--pill-bg);}
+
+  .drag-handle{
+    width:18px; flex-shrink:0; display:flex; align-items:center; justify-content:center;
+    color:var(--text-muted); touch-action:none;
+  }
+  .drag-handle svg{width:14px; height:16px;}
 
   .check{
     width:24px; height:24px; border-radius:50%; border:1.6px solid var(--text-muted);
@@ -62,8 +85,29 @@
   .check svg{width:13px; height:13px; opacity:0; transform:scale(0.5); transition:opacity 0.15s, transform 0.15s;}
   .row.done .check svg{opacity:1; transform:scale(1);}
 
-  .row span{flex:1; font-size:16px; line-height:1.35; word-break:break-word;}
-  .row.done span{color:var(--text-muted); text-decoration:line-through;}
+  .row-body{flex:1; display:flex; flex-direction:column; gap:3px; min-width:0;}
+  .row-body > span{font-size:16px; line-height:1.35; word-break:break-word;}
+  .row.done .row-body > span{color:var(--text-muted); text-decoration:line-through;}
+
+  .due-pill{
+    display:inline-flex; align-items:center; gap:3px;
+    font-size:11px; font-weight:500; color:var(--text-secondary); width:fit-content;
+  }
+  .due-pill.overdue{color:var(--danger);}
+  .due-pill.soon{color:#FF9500;}
+
+  .cal-btn{
+    border:none; background:none; color:var(--text-muted);
+    width:28px; height:28px; display:flex; align-items:center; justify-content:center;
+    flex-shrink:0; border-radius:50%; padding:0; font-size:15px;
+  }
+  .cal-btn:active{background:var(--pill-bg);}
+  .cal-btn.has-date{color:var(--accent);}
+
+  .date-hidden{
+    position:fixed; top:-200px; left:-200px; width:1px; height:1px;
+    opacity:0; pointer-events:none; border:none;
+  }
 
   .del-btn{
     border:none; background:none; color:var(--text-muted); width:28px; height:28px;
@@ -73,12 +117,12 @@
   .del-btn svg{width:15px; height:15px;}
 
   .add-row{display:flex; align-items:center; gap:10px; padding:12px 14px;}
-  .add-row input{
+  .add-row input[type="text"]{
     flex:1; font-size:16px; padding:0; border:none; background:none; color:var(--text);
     font-family:inherit;
   }
-  .add-row input::placeholder{color:var(--text-muted);}
-  .add-row input:focus{outline:none;}
+  .add-row input[type="text"]::placeholder{color:var(--text-muted);}
+  .add-row input[type="text"]:focus{outline:none;}
   .add-btn{
     border:none; background:var(--accent); color:#fff; font-weight:600; font-size:14px;
     width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center;
@@ -87,7 +131,13 @@
   .add-btn.ready{opacity:1;}
   .add-btn svg{width:14px; height:14px;}
 
-  .empty{font-size:14px; color:var(--text-muted); padding:14px;}
+  .edit-input{
+    flex:1; font-size:16px; line-height:1.35; padding:0; border:none; background:none;
+    color:var(--text); font-family:inherit; outline:none; min-width:0;
+  }
+
+  .empty{font-size:14px; color:var(--text-muted); padding:14px 14px 10px;}
+  .empty-hint{font-size:12px; color:var(--text-muted); padding:0 14px 14px; margin-top:-4px;}
 </style>
 </head>
 <body>
@@ -103,6 +153,7 @@
     <div class="stat"><div class="num" id="streak-num">0</div><div class="label">day streak</div></div>
     <div class="stat"><div class="num" id="today-num">0/0</div><div class="label">today</div></div>
   </div>
+  <div id="all-done-banner" class="all-done-banner">🎉 All done for today!</div>
   <div id="sections"></div>
 
 <script>
@@ -115,20 +166,19 @@
   var CHECK_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
   var X_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
   var PLUS_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>';
+  var DRAG_ICON = '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg>';
+  var CAL_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="3"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>';
 
   function uid(){ return Math.random().toString(36).slice(2,9); }
 
+  // — Theme —
   function applyTheme(mode){
-    if (mode === 'system') {
-      document.documentElement.removeAttribute('data-theme');
-    } else {
-      document.documentElement.setAttribute('data-theme', mode);
-    }
+    if (mode === 'system') document.documentElement.removeAttribute('data-theme');
+    else document.documentElement.setAttribute('data-theme', mode);
     document.querySelectorAll('[data-theme-btn]').forEach(function(btn){
       btn.classList.toggle('active', btn.getAttribute('data-theme-btn') === mode);
     });
   }
-
   function loadTheme(){
     var mode = 'system';
     try { mode = localStorage.getItem(THEME_KEY) || 'system'; } catch(e){}
@@ -142,6 +192,7 @@
     });
   }
 
+  // — Persistence —
   function load(){
     try {
       var raw = localStorage.getItem(STORAGE_KEY);
@@ -151,26 +202,12 @@
     if (!data.dailyDone) data.dailyDone = {};
     if (!data.short) data.short = [];
     if (!data.long) data.long = [];
-
-    if (data.daily.length === 0 && data.short.length === 0 && data.long.length === 0) {
-      data.daily = [
-        { id: uid(), text: 'Walk 15,000 steps' },
-        { id: uid(), text: 'Drink 6 glasses of water' }
-      ];
-      data.short = [ { id: uid(), text: 'Get a job this year', done:false } ];
-      data.long = [
-        { id: uid(), text: 'Buy a house in London (~£350k)', done:false },
-        { id: uid(), text: 'Buy a Mercedes or Range Rover', done:false },
-        { id: uid(), text: 'Buy a motorbike', done:false }
-      ];
-      save();
-    }
   }
-
   function save(){
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch(e){}
   }
 
+  // — Streak —
   function computeStreak(){
     if (data.daily.length === 0) return 0;
     var streak = 0;
@@ -178,14 +215,169 @@
     while (true) {
       var ds = d.toISOString().slice(0,10);
       var done = data.dailyDone[ds] || [];
-      var allDone = data.daily.every(function(g){ return done.indexOf(g.id) !== -1; });
-      if (!allDone) break;
+      if (!data.daily.every(function(g){ return done.indexOf(g.id) !== -1; })) break;
       streak++;
       d.setDate(d.getDate() - 1);
     }
     return streak;
   }
+  function allDailyDoneToday(){
+    if (data.daily.length === 0) return false;
+    var arr = data.dailyDone[todayStr] || [];
+    return data.daily.every(function(g){ return arr.indexOf(g.id) !== -1; });
+  }
 
+  // — Due date helpers —
+  function formatDue(dateStr){
+    var d = new Date(dateStr + 'T00:00:00');
+    var now = new Date(); now.setHours(0,0,0,0);
+    var diff = Math.round((d - now) / 86400000);
+    if (diff < 0)  return { text: 'Overdue by ' + Math.abs(diff) + 'd', cls: 'overdue' };
+    if (diff === 0) return { text: 'Due today', cls: 'soon' };
+    if (diff === 1) return { text: 'Due tomorrow', cls: 'soon' };
+    if (diff <= 7)  return { text: 'In ' + diff + ' days', cls: 'soon' };
+    var M = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    var yr = d.getFullYear() !== now.getFullYear() ? ' ' + d.getFullYear() : '';
+    return { text: 'by ' + d.getDate() + ' ' + M[d.getMonth()] + yr, cls: '' };
+  }
+
+  function openDatePicker(input){
+    try { input.showPicker(); } catch(e){ input.focus(); }
+  }
+
+  // — Confetti —
+  function celebrate(){
+    var canvas = document.createElement('canvas');
+    canvas.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:999;';
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    document.body.appendChild(canvas);
+    var ctx = canvas.getContext('2d');
+    var colors = ['#34C759','#007AFF','#FF9500','#FF2D55','#AF52DE','#FFD60A','#5AC8FA'];
+    var particles = [];
+    for (var i = 0; i < 90; i++) {
+      particles.push({
+        x: Math.random() * canvas.width,
+        y: -10 - Math.random() * 40,
+        vx: (Math.random() - 0.5) * 7,
+        vy: Math.random() * 3 + 2,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        w: Math.random() * 8 + 4,
+        h: Math.random() * 5 + 3,
+        rot: Math.random() * 360,
+        rotV: (Math.random() - 0.5) * 12
+      });
+    }
+    var start = null; var duration = 2200;
+    function frame(ts){
+      if (!start) start = ts;
+      var elapsed = ts - start;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      particles.forEach(function(p){
+        p.x += p.vx; p.y += p.vy; p.vy += 0.12; p.rot += p.rotV;
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, 1 - elapsed / duration);
+        ctx.fillStyle = p.color;
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.rot * Math.PI / 180);
+        ctx.fillRect(-p.w/2, -p.h/2, p.w, p.h);
+        ctx.restore();
+      });
+      if (elapsed < duration) requestAnimationFrame(frame); else canvas.remove();
+    }
+    requestAnimationFrame(frame);
+  }
+
+  // — Inline text edit —
+  function startEdit(row, g){
+    var span = row.querySelector('span');
+    if (!span) return;
+    var input = document.createElement('input');
+    input.type = 'text'; input.value = g.text; input.className = 'edit-input';
+    span.parentNode.replaceChild(input, span);
+    input.focus(); input.setSelectionRange(0, input.value.length);
+    function commit(){
+      var val = input.value.trim();
+      if (val && val !== g.text){ g.text = val; save(); }
+      render();
+    }
+    input.addEventListener('blur', commit);
+    input.addEventListener('keydown', function(e){
+      if (e.key === 'Enter'){ e.preventDefault(); input.blur(); }
+      if (e.key === 'Escape'){ input.value = g.text; input.blur(); }
+    });
+    input.addEventListener('click', function(e){ e.stopPropagation(); });
+    input.addEventListener('touchend', function(e){ e.stopPropagation(); });
+  }
+
+  // — Drag to reorder —
+  function initDrag(card, kind){
+    var dragId = null, ghost = null, ghostOffY = 0;
+
+    function getRows(){ return Array.from(card.querySelectorAll('.row[data-id]')); }
+
+    function onMove(e){
+      if (!dragId) return;
+      e.preventDefault();
+      var t = e.touches[0];
+      ghost.style.top = (t.clientY - ghostOffY) + 'px';
+      getRows().forEach(function(r){
+        r.classList.remove('drag-over');
+        var rect = r.getBoundingClientRect();
+        if (r.getAttribute('data-id') !== dragId && t.clientY >= rect.top && t.clientY <= rect.bottom) {
+          r.classList.add('drag-over');
+        }
+      });
+    }
+
+    function onEnd(e){
+      if (!dragId) return;
+      var t = e.changedTouches[0];
+      var targetId = null;
+      getRows().forEach(function(r){
+        r.classList.remove('drag-over', 'dragging');
+        var rect = r.getBoundingClientRect();
+        if (r.getAttribute('data-id') !== dragId && t.clientY >= rect.top && t.clientY <= rect.bottom) {
+          targetId = r.getAttribute('data-id');
+        }
+      });
+      if (ghost){ ghost.remove(); ghost = null; }
+      if (targetId) {
+        var items = data[kind];
+        var fi = items.findIndex(function(g){ return g.id === dragId; });
+        var ti = items.findIndex(function(g){ return g.id === targetId; });
+        if (fi !== -1 && ti !== -1){
+          var item = items.splice(fi, 1)[0];
+          items.splice(ti, 0, item);
+          save();
+        }
+      }
+      dragId = null;
+      document.removeEventListener('touchmove', onMove);
+      document.removeEventListener('touchend', onEnd);
+      render();
+    }
+
+    card.addEventListener('touchstart', function(e){
+      var handle = e.target.closest('.drag-handle');
+      if (!handle) return;
+      e.preventDefault();
+      var row = handle.closest('.row');
+      if (!row) return;
+      dragId = row.getAttribute('data-id');
+      var rect = row.getBoundingClientRect();
+      var t = e.touches[0];
+      ghostOffY = t.clientY - rect.top;
+      ghost = row.cloneNode(true);
+      ghost.style.cssText = 'position:fixed;left:'+rect.left+'px;top:'+rect.top+'px;width:'+rect.width+'px;z-index:1000;pointer-events:none;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,0.18);opacity:0.95;background:var(--card);';
+      document.body.appendChild(ghost);
+      row.classList.add('dragging');
+      document.addEventListener('touchmove', onMove, {passive: false});
+      document.addEventListener('touchend', onEnd);
+    }, {passive: false});
+  }
+
+  // — Build a section —
   function section(title, kind){
     var wrap = document.createElement('div');
     wrap.className = 'section';
@@ -199,12 +391,22 @@
 
     var items = kind === 'daily' ? data.daily : data[kind];
     var doneSet = kind === 'daily' ? (data.dailyDone[todayStr] || []) : null;
+    var hasDates = kind === 'short' || kind === 'long';
 
+    var hints = {
+      daily: ['No daily habits yet.', 'e.g. drink water, walk 10k steps, read 10 pages'],
+      short: ['No short-term goals yet.', 'e.g. finish a course, plan a trip'],
+      long:  ['No long-term goals yet.', 'e.g. learn a language, start a business']
+    };
     if (items.length === 0) {
       var empty = document.createElement('div');
       empty.className = 'empty';
-      empty.textContent = 'Nothing here yet.';
+      empty.textContent = hints[kind][0];
       card.appendChild(empty);
+      var hint = document.createElement('div');
+      hint.className = 'empty-hint';
+      hint.textContent = hints[kind][1];
+      card.appendChild(hint);
     }
 
     items.forEach(function(g){
@@ -213,99 +415,224 @@
       row.className = 'row' + (checked ? ' done' : '');
       row.setAttribute('data-id', g.id);
       row.setAttribute('data-kind', kind);
-      row.innerHTML =
-        '<div class="check">'+CHECK_ICON+'</div>' +
-        '<span>'+g.text.replace(/</g,'&lt;')+'</span>' +
-        '<button class="del-btn" data-del="'+g.id+'" data-kind="'+kind+'" aria-label="Delete">'+X_ICON+'</button>';
+
+      // Drag handle
+      var dh = document.createElement('div');
+      dh.className = 'drag-handle';
+      dh.innerHTML = DRAG_ICON;
+      row.appendChild(dh);
+
+      // Check circle
+      var ch = document.createElement('div');
+      ch.className = 'check';
+      ch.innerHTML = CHECK_ICON;
+      row.appendChild(ch);
+
+      // Body: text + optional due date
+      var body = document.createElement('div');
+      body.className = 'row-body';
+      var span = document.createElement('span');
+      span.textContent = g.text;
+      body.appendChild(span);
+      if (hasDates && g.due) {
+        var fmt = formatDue(g.due);
+        var pill = document.createElement('div');
+        pill.className = 'due-pill' + (fmt.cls ? ' ' + fmt.cls : '');
+        pill.textContent = fmt.text;
+        body.appendChild(pill);
+      }
+      row.appendChild(body);
+
+      // Calendar button (short/long only)
+      if (hasDates) {
+        var calInput = document.createElement('input');
+        calInput.type = 'date';
+        calInput.className = 'date-hidden';
+        if (g.due) calInput.value = g.due;
+        document.body.appendChild(calInput);
+
+        var calBtn = document.createElement('button');
+        calBtn.className = 'cal-btn' + (g.due ? ' has-date' : '');
+        calBtn.innerHTML = CAL_ICON;
+        calBtn.setAttribute('aria-label', 'Set due date');
+
+        // Short tap → open picker
+        var calPressTimer = null;
+        calBtn.addEventListener('touchstart', function(e){
+          e.stopPropagation();
+          calPressTimer = setTimeout(function(){
+            calPressTimer = null;
+            // Long press = clear date
+            g.due = undefined;
+            calInput.value = '';
+            save(); render();
+          }, 600);
+        }, {passive: true});
+        calBtn.addEventListener('touchend', function(e){
+          e.stopPropagation();
+          if (calPressTimer){
+            clearTimeout(calPressTimer);
+            calPressTimer = null;
+            openDatePicker(calInput);
+          }
+        });
+        calBtn.addEventListener('click', function(e){
+          e.stopPropagation();
+          openDatePicker(calInput);
+        });
+
+        calInput.addEventListener('change', function(){
+          g.due = calInput.value || undefined;
+          save(); render();
+        });
+
+        row.appendChild(calBtn);
+      }
+
+      // Delete button
+      var del = document.createElement('button');
+      del.className = 'del-btn';
+      del.innerHTML = X_ICON;
+      del.setAttribute('aria-label', 'Delete');
+      del.addEventListener('click', function(e){
+        e.stopPropagation();
+        data[kind] = data[kind].filter(function(x){ return x.id !== g.id; });
+        if (kind === 'daily'){
+          Object.keys(data.dailyDone).forEach(function(ds){
+            data.dailyDone[ds] = data.dailyDone[ds].filter(function(x){ return x !== g.id; });
+          });
+        }
+        save(); render();
+      });
+      del.addEventListener('touchend', function(e){ e.stopPropagation(); });
+      row.appendChild(del);
+
+      // Long-press span → edit text
+      var pressTimer = null, longFired = false;
+      span.addEventListener('touchstart', function(){
+        longFired = false;
+        pressTimer = setTimeout(function(){
+          longFired = true;
+          startEdit(row, g);
+        }, 500);
+      }, {passive: true});
+      span.addEventListener('touchend', function(){ clearTimeout(pressTimer); });
+      span.addEventListener('touchmove', function(){ clearTimeout(pressTimer); });
+
+      // Tap row → toggle done
+      row.addEventListener('click', function(){
+        if (longFired) return;
+        var wasDone = allDailyDoneToday();
+        if (kind === 'daily'){
+          var arr = data.dailyDone[todayStr] || [];
+          var idx = arr.indexOf(g.id);
+          if (idx === -1) arr.push(g.id); else arr.splice(idx, 1);
+          data.dailyDone[todayStr] = arr;
+        } else {
+          g.done = !g.done;
+        }
+        save();
+        if (!wasDone && allDailyDoneToday()) celebrate();
+        render();
+      });
+
       card.appendChild(row);
     });
 
+    // Add row
     var addRow = document.createElement('div');
     addRow.className = 'add-row';
-    addRow.innerHTML =
-      '<input type="text" placeholder="Add a goal" data-add-input="'+kind+'">' +
-      '<button class="add-btn" data-add-btn="'+kind+'" aria-label="Add">'+PLUS_ICON+'</button>';
-    card.appendChild(addRow);
 
+    var textInput = document.createElement('input');
+    textInput.type = 'text';
+    textInput.placeholder = 'Add a goal';
+    textInput.setAttribute('data-add-input', kind);
+    addRow.appendChild(textInput);
+
+    // Date picker for short/long add row
+    var newDateInput = null;
+    if (hasDates) {
+      newDateInput = document.createElement('input');
+      newDateInput.type = 'date';
+      newDateInput.className = 'date-hidden';
+      document.body.appendChild(newDateInput);
+
+      var newCalBtn = document.createElement('button');
+      newCalBtn.className = 'cal-btn';
+      newCalBtn.innerHTML = CAL_ICON;
+      newCalBtn.setAttribute('aria-label', 'Pick due date');
+      newCalBtn.addEventListener('click', function(e){
+        e.stopPropagation();
+        openDatePicker(newDateInput);
+      });
+      newCalBtn.addEventListener('touchend', function(e){ e.stopPropagation(); });
+      newDateInput.addEventListener('change', function(){
+        newCalBtn.classList.toggle('has-date', !!newDateInput.value);
+      });
+      addRow.appendChild(newCalBtn);
+    }
+
+    var addBtn = document.createElement('button');
+    addBtn.className = 'add-btn';
+    addBtn.innerHTML = PLUS_ICON;
+    addBtn.setAttribute('aria-label', 'Add');
+    addRow.appendChild(addBtn);
+
+    function doAdd(){
+      var text = textInput.value.trim();
+      if (!text) return;
+      var entry = { id: uid(), text: text, done: false };
+      if (hasDates && newDateInput && newDateInput.value) {
+        entry.due = newDateInput.value;
+        newDateInput.value = '';
+        if (newDateInput.previousSibling) newDateInput.previousSibling.classList && newDateInput.previousSibling.classList.remove('has-date');
+      }
+      data[kind].push(entry);
+      textInput.value = '';
+      addBtn.classList.remove('ready');
+      save(); render();
+    }
+
+    addBtn.addEventListener('click', function(e){ e.stopPropagation(); doAdd(); });
+    textInput.addEventListener('input', function(){
+      addBtn.classList.toggle('ready', textInput.value.trim().length > 0);
+    });
+    textInput.addEventListener('click', function(e){ e.stopPropagation(); });
+    textInput.addEventListener('keydown', function(e){ if (e.key === 'Enter') doAdd(); });
+
+    card.appendChild(addRow);
     wrap.appendChild(card);
+
+    initDrag(card, kind);
     return wrap;
   }
 
+  // — Render —
   function render(){
     document.getElementById('streak-num').textContent = computeStreak();
     var doneToday = (data.dailyDone[todayStr] || []).length;
     document.getElementById('today-num').textContent = doneToday + '/' + data.daily.length;
+    document.getElementById('all-done-banner').classList.toggle('visible', allDailyDoneToday());
+
+    // Clean up orphaned hidden date inputs from previous render
+    document.querySelectorAll('.date-hidden').forEach(function(el){ el.remove(); });
 
     var s = document.getElementById('sections');
     s.innerHTML = '';
     s.appendChild(section('Daily', 'daily'));
     s.appendChild(section('Short term', 'short'));
     s.appendChild(section('Long term', 'long'));
-
-    s.querySelectorAll('.row').forEach(function(row){
-      row.addEventListener('click', function(){
-        var id = row.getAttribute('data-id');
-        var kind = row.getAttribute('data-kind');
-        if (kind === 'daily') {
-          var arr = data.dailyDone[todayStr] || [];
-          var idx = arr.indexOf(id);
-          if (idx === -1) arr.push(id); else arr.splice(idx,1);
-          data.dailyDone[todayStr] = arr;
-        } else {
-          var item = data[kind].find(function(x){ return x.id === id; });
-          if (item) item.done = !item.done;
-        }
-        save(); render();
-      });
-    });
-
-    s.querySelectorAll('[data-del]').forEach(function(btn){
-      btn.addEventListener('click', function(e){
-        e.stopPropagation();
-        var id = btn.getAttribute('data-del');
-        var kind = btn.getAttribute('data-kind');
-        data[kind] = data[kind].filter(function(g){ return g.id !== id; });
-        if (kind === 'daily') {
-          Object.keys(data.dailyDone).forEach(function(ds){
-            data.dailyDone[ds] = data.dailyDone[ds].filter(function(x){ return x !== id; });
-          });
-        }
-        save(); render();
-      });
-    });
-
-    s.querySelectorAll('[data-add-btn]').forEach(function(btn){
-      btn.addEventListener('click', function(e){
-        e.stopPropagation();
-        var kind = btn.getAttribute('data-add-btn');
-        var input = s.querySelector('[data-add-input="'+kind+'"]');
-        var text = input.value.trim();
-        if (!text) return;
-        data[kind].push({ id: uid(), text: text, done: false });
-        input.value = '';
-        save(); render();
-      });
-    });
-
-    s.querySelectorAll('[data-add-input]').forEach(function(input){
-      input.addEventListener('input', function(){
-        var kind = input.getAttribute('data-add-input');
-        var btn = s.querySelector('[data-add-btn="'+kind+'"]');
-        btn.classList.toggle('ready', input.value.trim().length > 0);
-      });
-      input.addEventListener('click', function(e){ e.stopPropagation(); });
-      input.addEventListener('keydown', function(e){
-        if (e.key === 'Enter') {
-          var kind = input.getAttribute('data-add-input');
-          s.querySelector('[data-add-btn="'+kind+'"]').click();
-        }
-      });
-    });
   }
 
   loadTheme();
   load();
   render();
+
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function(){
+      navigator.serviceWorker.register('./sw.js');
+    });
+  }
 })();
 </script>
 </body>
