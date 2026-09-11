@@ -138,6 +138,13 @@
 
   .empty{font-size:14px; color:var(--text-muted); padding:14px 14px 10px;}
   .empty-hint{font-size:12px; color:var(--text-muted); padding:0 14px 14px; margin-top:-4px;}
+
+  .clear-btn{
+    width:100%; border:none; background:none; color:var(--text-secondary);
+    font-size:14px; font-family:inherit; padding:12px 14px; text-align:left;
+    border-top:0.5px solid var(--border); cursor:pointer;
+  }
+  .clear-btn:active{background:var(--pill-bg);}
 </style>
 </head>
 <body>
@@ -170,6 +177,7 @@
   var CAL_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="3"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>';
 
   function uid(){ return Math.random().toString(36).slice(2,9); }
+  function haptic(){ try { navigator.vibrate && navigator.vibrate(10); } catch(e){} }
 
   // — Theme —
   function applyTheme(mode){
@@ -526,10 +534,11 @@
         if (kind === 'daily'){
           var arr = data.dailyDone[todayStr] || [];
           var idx = arr.indexOf(g.id);
-          if (idx === -1) arr.push(g.id); else arr.splice(idx, 1);
+          if (idx === -1){ arr.push(g.id); haptic(); } else arr.splice(idx, 1);
           data.dailyDone[todayStr] = arr;
         } else {
           g.done = !g.done;
+          if (g.done) haptic();
         }
         save();
         if (!wasDone && allDailyDoneToday()) celebrate();
@@ -601,6 +610,20 @@
     textInput.addEventListener('keydown', function(e){ if (e.key === 'Enter') doAdd(); });
 
     card.appendChild(addRow);
+
+    // Clear completed (short/long only, when any are done)
+    if (hasDates && items.some(function(g){ return g.done; })) {
+      var clearBtn = document.createElement('button');
+      clearBtn.className = 'clear-btn';
+      clearBtn.textContent = 'Clear completed';
+      clearBtn.addEventListener('click', function(e){
+        e.stopPropagation();
+        data[kind] = data[kind].filter(function(g){ return !g.done; });
+        save(); render();
+      });
+      card.appendChild(clearBtn);
+    }
+
     wrap.appendChild(card);
 
     initDrag(card, kind);
